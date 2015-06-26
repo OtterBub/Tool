@@ -62,29 +62,27 @@ namespace Tool
 
 			lFilename = Console.ReadLine( );
 
-			_thread = new Thread( new ParameterizedThreadStart( FileLoad ) );
-			_thread.Start( lFilename );
+			//_thread = new Thread( new ParameterizedThreadStart( FileLoad ) );
+			//_thread.Start( lFilename );
+
+			FileLoad( lFilename );
 
 			while( _fileread == false ) ;
 
 			while( true )
 			{
-				_commander = Console.ReadLine( );
-				if( _commander == "exit" )
-				{
-					_thread.Abort( );
-					break;
-				}
-				else
+				//_commander = Console.ReadLine( );
+				//if( _commander == "exit" )
+				//{
+				//	_thread.Abort( );
+				//	break;
+				//}
+				//else
 				{
 					if( _fileread )
 					{
-
 						while( _fileread )
 						{
-
-
-
 							if( SR == null )
 								SR = new StreamReader( FS );
 
@@ -95,6 +93,7 @@ namespace Tool
 							{
 								Console.WriteLine( "End Press Enter" );
 								Console.ReadLine( );
+								_fileread = false;
 								break;
 							}
 
@@ -276,7 +275,7 @@ namespace Tool
 					}
 					else // File dont Read
 					{
-
+						break;
 					}
 				}
 			}
