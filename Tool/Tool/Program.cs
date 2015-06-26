@@ -65,6 +65,8 @@ namespace Tool
 			//_thread = new Thread( new ParameterizedThreadStart( FileLoad ) );
 			//_thread.Start( lFilename );
 
+			CreateIfMissing( filePath );
+
 			FileLoad( lFilename );
 
 			while( _fileread == false ) ;
@@ -286,6 +288,14 @@ namespace Tool
 		{
 			FS = new FileStream( ( String )filename, FileMode.Open, FileAccess.Read );
 			_fileread = true;
+			
+		}
+
+		public void CreateIfMissing( String path )
+		{
+			bool folderExists = Directory.Exists( path );
+			if( !folderExists )
+				Directory.CreateDirectory( path );
 		}
 	}
 }
