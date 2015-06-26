@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Collections;
 using System.Linq;
@@ -6,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System.IO;
+using System.Windows.Forms;
 
 public class BOOL
 {
@@ -30,11 +32,11 @@ namespace Tool
 {
 	class Program
 	{
+		[STAThread]
 		static void Main( string[] args )
 		{
 			new Program( );
 		}
-
 		Dictionary<String, DATA> DataDic = new Dictionary<String, DATA>( );
 		List<String> LineList = new List<String>( );
 		List<String> SignalNumList = new List<String>( );
@@ -56,20 +58,44 @@ namespace Tool
 
 		public Program( )
 		{
-			String lFilename = "";
+			String lFilename = "";			
 
-			Console.WriteLine( "Input FileName" );
+			while( _fileread == false )
+			{
+				Console.WriteLine( "Input FileName" );
 
-			lFilename = Console.ReadLine( );
+				lFilename = "";
 
-			//_thread = new Thread( new ParameterizedThreadStart( FileLoad ) );
-			//_thread.Start( lFilename );
+				// key Input
+				while(true)
+				{
+					ConsoleKeyInfo info = Console.ReadKey( true );
+					
+					// Ctrl + V ( Paste )
+					if( ( ConsoleModifiers.Control & info.Modifiers ) != 0 )
+					{
+						if( Convert.ToInt32( info.KeyChar ) == 22 )
+						{
+							lFilename = Clipboard.GetText();
+							Console.Write( Clipboard.GetText() + "\n" );
+						}
+					}
+					else if ( info.Key == ConsoleKey.Enter ) // Press Enter
+					{
+						Console.WriteLine();
+						break;
+					}
+					else
+					{
+						lFilename += info.KeyChar;
+						Console.Write( info.KeyChar );
+					}
+				}
 
-			CreateIfMissing( filePath );
+				CreateIfMissing( filePath );
 
-			FileLoad( lFilename );
-
-			while( _fileread == false ) ;
+				FileLoad( lFilename );
+			}
 
 			while( true )
 			{
@@ -98,7 +124,7 @@ namespace Tool
 								_fileread = false;
 								break;
 							}
-
+							
 							splitResult = readLineStr.Split( mainDelimiter );
 
 							// Skip Global Info
@@ -148,9 +174,24 @@ namespace Tool
 
 									if( DataDic.TryGetValue( currentSignalName, out currentDATA ) == false )
 									{
-
 										currentDATA = new DATA( currentSignalName );
 										DataDic.Add( currentSignalName, currentDATA );
+
+										currentDATA.Frequency["S11"] = new Dictionary<String, Dictionary<String, Double>>( );
+										currentDATA.Frequency["S12"] = new Dictionary<String, Dictionary<String, Double>>( );
+										currentDATA.Frequency["S13"] = new Dictionary<String, Dictionary<String, Double>>( );
+										currentDATA.Frequency["S21"] = new Dictionary<String, Dictionary<String, Double>>( );
+										currentDATA.Frequency["S22"] = new Dictionary<String, Dictionary<String, Double>>( );
+										currentDATA.Frequency["S23"] = new Dictionary<String, Dictionary<String, Double>>( );
+										currentDATA.Frequency["S31"] = new Dictionary<String, Dictionary<String, Double>>( );
+										currentDATA.Frequency["S32"] = new Dictionary<String, Dictionary<String, Double>>( );
+										currentDATA.Frequency["S33"] = new Dictionary<String, Dictionary<String, Double>>( );
+
+										foreach ( var freqItem in currentDATA.Frequency )
+										{
+											currentDATA.Frequency[freqItem.Key]["MAG"] = new Dictionary<String, Double>( );
+											currentDATA.Frequency[freqItem.Key]["ANG"] = new Dictionary<String, Double>( );		
+										}
 									}
 
 									if( currentDATA.Frequency.ContainsKey( currentSignalNum ) == false )
@@ -165,7 +206,11 @@ namespace Tool
 
 									if( currentDATA.Frequency[currentSignalNum][otherSignalName].ContainsKey( currentFreq ) == false )
 									{
-										currentDATA.Frequency[currentSignalNum][otherSignalName][currentFreq] = 0.0;
+										foreach ( var freqItem in currentDATA.Frequency )
+										{
+											currentDATA.Frequency[freqItem.Key]["MAG"][currentFreq] = 0.0;
+											currentDATA.Frequency[freqItem.Key]["ANG"][currentFreq] = 0.0;		
+										}
 									}
 								}
 
@@ -181,6 +226,7 @@ namespace Tool
 										{
 											SW.Write( signalOtherName.Key + "-" );
 											SW.Write( signalOtherName.Value.Values.Count + ", " );
+											
 											valueCount += signalOtherName.Value.Values.Count;
 										}
 										SW.Write( "\n" );
@@ -188,7 +234,7 @@ namespace Tool
 									SW.Write( "\n" );
 								}
 
-								SW.Write( "LineList Count: " + LineList.Count + " / " + valueCount );
+								SW.Write( "LineList Count: " + LineList.Count );
 
 								SW.Close( );
 								tempFS.Close( );
@@ -196,7 +242,7 @@ namespace Tool
 							else
 							{
 								String[] splitData = readLineStr.Split( mainDelimiter );
-								String unitNum = splitData[0].Split( stringDelemiter )[1];
+								String unitNum = splitData[0];
 
 								for( int i = 1; i < splitData.Length - 1; ++i )
 								{
@@ -225,45 +271,67 @@ namespace Tool
 									DATA data = dataItem.Value;
 
 									FileStream tempFS =
-										new FileStream( filePath + data.SignalName + "-Unit" + unitNum + ".s4p",
+										new FileStream( filePath + data.SignalName + "-" + unitNum + ".s4p",
 											FileMode.Create, FileAccess.ReadWrite );
 
 									StreamWriter SW = new StreamWriter( tempFS );
+									SW.Write("#\tHZ\tS\tDB\tR50.0\n");
+									SW.Write("!\t" + "{0:MM}/{0:dd}/{0:yyyy}\t" + "{1}" + "\n", DateTime.Now, DateTime.Now.ToString("hh:mm:ss tt", new CultureInfo("en-US")));
+									SW.Write( "Freq\t" );
 
-									SW.Write( "Freq," );
-
-									Dictionary<String, List<Double>> freqResult = new Dictionary<String, List<Double>>( );
+									// freqResult[Frequency]
+									Dictionary<String, List<Double>> freqMAGResult = new Dictionary<String, List<Double>>( );
+									Dictionary<String, List<Double>> freqANGResult = new Dictionary<String, List<Double>>( );
 
 									foreach( var signalNum in dataItem.Value.Frequency )
 									{
 
-										SW.Write( signalNum.Key + "," );
+										SW.Write( signalNum.Key + "\t\t" );
 
 										foreach( var OtherSignalName in signalNum.Value )
 										{
+											
 											// Convert row to column ( frequency )
-											foreach( var freq in OtherSignalName.Value )
+											if( OtherSignalName.Key == "MAG" )
 											{
-												List<Double> list = null;
-												if( freqResult.TryGetValue( freq.Key, out list ) == false )
+												foreach( var freq in OtherSignalName.Value )
 												{
-													list = new List<Double>( );
-													freqResult[freq.Key] = list;
+													List<Double> list = null;
+													if( freqMAGResult.TryGetValue( freq.Key, out list ) == false )
+													{
+														list = new List<Double>( );
+														freqMAGResult[freq.Key] = list;
+													}
+													freqMAGResult[freq.Key].Add( freq.Value );
 												}
-												freqResult[freq.Key].Add( freq.Value );
 											}
-											break;
+											else
+											{
+												foreach( var freq in OtherSignalName.Value )
+												{
+													List<Double> list = null;
+													if( freqANGResult.TryGetValue( freq.Key, out list ) == false )
+													{
+														list = new List<Double>( );
+														freqANGResult[freq.Key] = list;
+													}
+													freqANGResult[freq.Key].Add( freq.Value );
+												}
+											}
 										}
 									}
 									SW.Write( "\n" );
 									// Write Frequency
-									foreach( var result in freqResult )
+									foreach( var result in freqMAGResult )
 									{
-										SW.Write( result.Key + "," );
-										foreach( var resultItem in result.Value )
+										SW.Write( result.Key + "\t" );
+
+										for( int i = 0; i < result.Value.Count; ++i )
 										{
-											SW.Write( resultItem + "," );
+											SW.Write( result.Value[i] + "\t" );
+											SW.Write( freqANGResult[result.Key][i] + "\t" );
 										}
+
 										SW.Write( "\n" );
 									}
 
@@ -286,9 +354,16 @@ namespace Tool
 
 		public void FileLoad( object filename )
 		{
-			FS = new FileStream( ( String )filename, FileMode.Open, FileAccess.Read );
-			_fileread = true;
-			
+			try
+			{
+				FS = new FileStream( ( String )filename, FileMode.Open, FileAccess.Read );
+				_fileread = true;
+			}
+			catch( Exception e )
+			{
+				Console.WriteLine( "Failed Open File Please Check FileName or FilePath" );
+				_fileread = false;
+			}
 		}
 
 		public void CreateIfMissing( String path )
